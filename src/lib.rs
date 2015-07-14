@@ -1,7 +1,3 @@
-#![crate_type = "lib"]
-
-#![feature(libc)]
-
 extern crate libc;
 
 use std::ffi::CStr;
@@ -13,7 +9,8 @@ use std::ptr;
 use std::str;
 use libc::c_void;
 
-pub type CompletionFunction = extern "C" fn(text: *const i8, start: i32, end: i32) -> *mut *const i8;
+pub type CompletionFunction = extern "C" fn(text: *const i8, start: i32,
+    end: i32) -> *mut *const i8;
 pub type CPPFunction = Option<CompletionFunction>;
 // rl_compentry_func_t
 pub type CompletionEntryFunction = extern "C" fn(text: *const i8, state: i32) -> *const i8;
@@ -34,7 +31,8 @@ fn clear_compentries() {
 fn alloc_compentries(n: usize) -> *mut *const i8 {
     unsafe {
         if n > MAX_ENTRIES {
-            ENTRIES = libc::realloc(ENTRIES as *mut c_void, (n * mem::size_of::<*const i8>()) as u64) as *mut *const i8;
+            ENTRIES = libc::realloc(ENTRIES as *mut c_void,
+                (n * mem::size_of::<*const i8>()) as u64) as *mut *const i8;
             if ENTRIES.is_null() {
                 panic!("Memory allocation failed.");
             }
@@ -106,14 +104,16 @@ mod ffi {
         pub fn rl_read_init_file(filename: *const c_char) -> c_int;
         pub fn rl_parse_and_bind(line: *const c_char) -> c_int;
 
-        pub fn rl_completion_matches(text: *const c_char, entry_func: super::CompletionEntryFunction) -> *mut *const c_char;
+        pub fn rl_completion_matches(text: *const c_char,
+            entry_func: super::CompletionEntryFunction) -> *mut *const c_char;
     }
     extern {
         pub fn strdup(s: *const c_char) -> *const c_char;
     }
 }
 
-/// Begin a session in which the history functions might be used. This initializes the interactive variables.
+/// Begin a session in which the history functions might be used.
+/// This initializes the interactive variables.
 ///
 /// (See [using_history](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX2))
 pub fn using_history() {
@@ -127,7 +127,8 @@ pub fn using_history() {
 /// Blank lines and consecutive duplicates are discarded.
 /// (See [add_history](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX5))
 pub fn add_history(line: &str) {
-    if line.len() == 0 || line.chars().next().map_or(true, |c| c.is_whitespace()) { // HISTCONTROL=ignorespace
+     // HISTCONTROL=ignorespace
+    if line.len() == 0 || line.chars().next().map_or(true, |c| c.is_whitespace()) {
         return;
     }
     // HISTCONTROL=ignoredups
@@ -293,7 +294,8 @@ pub fn history_length() -> i32 {
 
 /// Print a `prompt` and then read and return a single line of text from the user.
 ///
-/// If readline encounters an EOF while reading the line, and the line is empty at that point, then `None` is returned.
+/// If readline encounters an EOF while reading the line, and the line is empty at that point,
+/// then `None` is returned.
 /// Otherwise, the line is ended just as if a newline had been typed.
 /// (See [readline](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX190))
 pub fn readline(prompt: &str) -> Option<String> {
@@ -322,7 +324,8 @@ pub fn rl_point() -> i32 {
     unsafe { ffi::rl_point }
 }
 
-/// Initialize or re-initialize Readline's internal state. It's not strictly necessary to call this; `readline()` calls it before reading any input.
+/// Initialize or re-initialize Readline's internal state.
+/// It's not strictly necessary to call this; `readline()` calls it before reading any input.
 ///
 /// (See [rl_initialize](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX316))
 pub fn rl_initialize() -> Result<()> {
@@ -348,7 +351,8 @@ pub fn rl_readline_version() -> i32 {
     ffi::rl_readline_version
 }
 
-/// Name is set to a unique name by each application using Readline. The value allows conditional parsing of the inputrc file.
+/// Name is set to a unique name by each application using Readline.
+/// The value allows conditional parsing of the inputrc file.
 ///
 /// (See [rl_readline_name](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX218))
 pub fn rl_readline_name() -> Option<String> {
@@ -356,7 +360,8 @@ pub fn rl_readline_name() -> Option<String> {
     c_str_to_string(name)
 }
 
-/// Set to a unique name by each application using Readline. The value allows conditional parsing of the inputrc file.
+/// Set to a unique name by each application using Readline.
+/// The value allows conditional parsing of the inputrc file.
 ///
 /// (See [rl_readline_name](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX218))
 pub fn set_rl_readline_name(name: &str) {
@@ -380,7 +385,8 @@ pub fn rl_read_init_file(filename: &Path) -> Result<()> {
     }
 }
 
-/// Parse line as if it had been read from the inputrc file and performs any key bindings and variable assignments found
+/// Parse line as if it had been read from the inputrc file and performs any key bindings and
+/// variable assignments found
 ///
 /// (See [rl_parse_and_bind](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX266))
 pub fn rl_parse_and_bind(line: &str) -> Result<()> {
@@ -423,7 +429,9 @@ pub fn set_rl_attempted_completion_function(f: CPPFunction) {
     unsafe { ffi::rl_attempted_completion_function = f }
 }
 
-pub fn rl_completion_matches(text: *const i8, entry_func: CompletionEntryFunction) -> *mut *const i8 {
+pub fn rl_completion_matches(text: *const i8,
+                             entry_func: CompletionEntryFunction)
+                             -> *mut *const i8 {
     unsafe {
         ffi::rl_completion_matches(text, entry_func)
     }
@@ -545,6 +553,7 @@ mod rl_tests {
     fn rl_completer_word_break_characters() {
         //assert_eq!(super::rl_completer_word_break_characters(), None);
         super::set_rl_completer_word_break_characters(" \t\n\"\\'`@$><=;|&{(");
-        assert_eq!(super::rl_completer_word_break_characters(), Some(" \t\n\"\\'`@$><=;|&{(".to_string()));
+        assert_eq!(super::rl_completer_word_break_characters(),
+            Some(" \t\n\"\\'`@$><=;|&{(".to_string()));
     }
 }
