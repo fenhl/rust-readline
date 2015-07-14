@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 extern crate libc;
 
 use std::ffi::CStr;
@@ -9,10 +10,12 @@ use std::ptr;
 use std::str;
 use libc::c_void;
 
+/// Completion function type signature (`rl_completion_func_t`)
 pub type CompletionFunction = extern "C" fn(text: *const i8, start: i32,
     end: i32) -> *mut *const i8;
+/// Optional completion function.
 pub type CPPFunction = Option<CompletionFunction>;
-// rl_compentry_func_t
+/// Generator function for `rl_completion_matches()` (`rl_compentry_func_t`)
 pub type CompletionEntryFunction = extern "C" fn(text: *const i8, state: i32) -> *const i8;
 
 static mut ENTRIES: *mut *const i8 = 0 as *mut *const i8;
@@ -42,6 +45,7 @@ fn alloc_compentries(n: usize) -> *mut *const i8 {
         ENTRIES
     }
 }
+/// Helper for generator function implementations.
 pub fn set_compentries(entries: Vec<String>) {
     clear_compentries();
     let c_entries = alloc_compentries(entries.len());
@@ -50,6 +54,7 @@ pub fn set_compentries(entries: Vec<String>) {
         unsafe { *c_entries.offset(i as isize) = ffi::strdup(c_entry.as_ptr()); }
     }
 }
+/// Helper for generator function implementations.
 pub fn get_compentry(i: usize) -> *const i8 {
     unsafe {
         if i >= NB_ENTRIES {
@@ -398,6 +403,10 @@ pub fn rl_parse_and_bind(line: &str) -> Result<()> {
     }
 }
 
+/// If an application-specific completion function assigned to `rl_attempted_completion_function` sets this variable to a non-zero value,
+/// Readline will not perform its default filename completion even if the application's completion function returns no matches.
+/// It should be set only by an application's completion function.
+/// (See [rl_attempted_completion_over](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX388))
 pub fn rl_attempted_completion_over(b: bool) {
     unsafe { ffi::rl_attempted_completion_over = b as i32; }
 }
@@ -424,11 +433,16 @@ pub fn set_rl_completer_word_break_characters(wbc: &str) {
     unsafe { ffi::rl_completer_word_break_characters = ffi::strdup(c_wbc.as_ptr()) };
 }
 
-
+/// Set the completion function to create matches.
+///
+/// (See [rl_attempted_completion_function](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX361))
 pub fn set_rl_attempted_completion_function(f: CPPFunction) {
     unsafe { ffi::rl_attempted_completion_function = f }
 }
 
+/// Returns an array of strings which is a list of completions for text.
+///
+/// (See [rl_completion_matches](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX357))
 pub fn rl_completion_matches(text: *const i8,
                              entry_func: CompletionEntryFunction)
                              -> *mut *const i8 {
