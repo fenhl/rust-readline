@@ -1,3 +1,4 @@
+//! Simple wrapper around readline/editline.
 #![warn(missing_docs)]
 extern crate libc;
 
