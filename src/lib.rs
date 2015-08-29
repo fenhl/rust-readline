@@ -1,4 +1,4 @@
-//! Simple wrapper around readline/editline.
+//! A Simple wrapper for libreadline or libedit
 #![warn(missing_docs)]
 extern crate libc;
 
@@ -52,7 +52,7 @@ pub fn set_compentries(entries: Vec<String>) {
     let c_entries = alloc_compentries(entries.len());
     for i in 0..entries.len() {
         let c_entry = CString::new(entries[i].as_bytes()).unwrap();
-        unsafe { *c_entries.offset(i as isize) = ffi::strdup(c_entry.as_ptr()); }
+        unsafe { *c_entries.offset(i as isize) = ext_readline::strdup(c_entry.as_ptr()); }
     }
 }
 /// Helper for generator function implementations.
@@ -67,7 +67,7 @@ pub fn get_compentry(i: usize) -> *const i8 {
     }
 }
 
-mod ffi {
+mod ext_readline {
     use libc::{c_char, c_int};
 
     #[repr(C)]
@@ -75,8 +75,7 @@ mod ffi {
         pub line: *const c_char,
     }
 
-    #[link(name = "readline")]
-    extern {
+    extern "C" {
         pub static mut history_base: c_int;
         pub static mut history_length: c_int;
         pub static mut rl_line_buffer: *mut c_char;
@@ -123,12 +122,16 @@ mod ffi {
 ///
 /// (See [using_history](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX2))
 pub fn using_history() {
-    unsafe { ffi::using_history() }
+    unsafe { ext_readline::using_history() }
 }
 
 //static mut PREV_HIST: *const i8 = 0 as *const i8;
 
+/// Update the internal history of input lines.
 /// Place `line` at the end of the history list.
+///
+/// Call this after a successful `readline()` call to add that line to the
+/// history.
 ///
 /// Blank lines and consecutive duplicates are discarded.
 /// (See [add_history](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX5))
@@ -145,10 +148,10 @@ pub fn add_history(line: &str) {
     unsafe {
         // HISTCONTROL=ignoredups
         //if PREV_HIST.is_null() || libc::strcmp(PREV_HIST, line) != 0 {
-            ffi::add_history(c_line.as_ptr());
+            ext_readline::add_history(c_line.as_ptr());
         //}
         //libc::free(PREV_HIST as *mut c_void);
-        //PREV_HIST = ffi::strdup(line);
+        //PREV_HIST = ext_readline::strdup(line);
     }
 }
 
@@ -161,7 +164,7 @@ pub fn history_get(mut index: i32) -> Option<String> {
         index += history_length();
     }
     index += history_base(); // TODO validate
-    let c_entry = unsafe { ffi::history_get(index) };
+    let c_entry = unsafe { ext_readline::history_get(index) };
     if c_entry.is_null() {
         None
     } else {
@@ -178,9 +181,9 @@ pub fn read_history(filename: Option<&Path>) -> Result<()> {
     let errno = match filename {
         Some(filename) => {
             let c_filename = CString::new(filename.to_str().unwrap()).unwrap();
-            unsafe { ffi::read_history(c_filename.as_ptr()) }
+            unsafe { ext_readline::read_history(c_filename.as_ptr()) }
         },
-        None => unsafe { ffi::read_history(ptr::null()) }
+        None => unsafe { ext_readline::read_history(ptr::null()) }
     };
     match errno {
         0 => Ok(()),
@@ -199,9 +202,9 @@ pub fn write_history(filename: Option<&Path>) -> Result<()> {
     let errno = match filename {
         Some(filename) => {
             let c_filename = CString::new(filename.to_str().unwrap()).unwrap();
-            unsafe { ffi::write_history(c_filename.as_ptr()) }
+            unsafe { ext_readline::write_history(c_filename.as_ptr()) }
         },
-        None => unsafe { ffi::write_history(ptr::null()) }
+        None => unsafe { ext_readline::write_history(ptr::null()) }
     };
     match errno {
         0 => Ok(()),
@@ -217,9 +220,9 @@ pub fn history_truncate_file(filename: Option<&Path>, nlines: i32) -> Result<()>
     let errno = match filename {
         Some(filename) => {
             let c_filename = CString::new(filename.to_str().unwrap()).unwrap();
-            unsafe { ffi::history_truncate_file(c_filename.as_ptr(), nlines) }
+            unsafe { ext_readline::history_truncate_file(c_filename.as_ptr(), nlines) }
         },
-        None => unsafe { ffi::history_truncate_file(ptr::null(), nlines) }
+        None => unsafe { ext_readline::history_truncate_file(ptr::null(), nlines) }
     };
     match errno {
         0 => Ok(()),
@@ -241,9 +244,9 @@ pub fn append_history(nelements: i32, filename: Option<&Path>) -> Result<()> {
                 File::create(filename);
             }*/
             let c_filename = CString::new(filename.to_str().unwrap()).unwrap();
-            unsafe { ffi::append_history(nelements, c_filename.as_ptr()) }
+            unsafe { ext_readline::append_history(nelements, c_filename.as_ptr()) }
         },
-        None => unsafe { ffi::append_history(nelements, ptr::null()) }
+        None => unsafe { ext_readline::append_history(nelements, ptr::null()) }
     };
     match errno {
         0 => Ok(()),
@@ -256,7 +259,7 @@ pub fn append_history(nelements: i32, filename: Option<&Path>) -> Result<()> {
 /// (See [clear_history](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX10))
 pub fn clear_history() {
     unsafe {
-        ffi::clear_history();
+        ext_readline::clear_history();
         //PREV_HIST = ptr::null();
     }
 }
@@ -265,7 +268,7 @@ pub fn clear_history() {
 ///
 /// (See [stifle_history](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX11))
 pub fn stifle_history(max: i32) {
-    unsafe { ffi::stifle_history(max) }
+    unsafe { ext_readline::stifle_history(max) }
 }
 
 /// Stop stifling the history.
@@ -274,28 +277,28 @@ pub fn stifle_history(max: i32) {
 /// The value is positive if the history was stifled, negative if it wasn't.
 /// (See [unstifle_history](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX12))
 pub fn unstifle_history() -> i32 {
-    unsafe { ffi::unstifle_history() }
+    unsafe { ext_readline::unstifle_history() }
 }
 
 /// Say if the history is stifled.
 ///
 /// (See [history_is_stifled](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX13))
 pub fn history_is_stifled() -> bool {
-    unsafe { ffi::history_is_stifled() != 0 }
+    unsafe { ext_readline::history_is_stifled() != 0 }
 }
 
 /// Return the logical offset of the first entry in the history list.
 ///
 /// (See [history_base](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX36))
 pub fn history_base() -> i32 {
-    unsafe { ffi::history_base }
+    unsafe { ext_readline::history_base }
 }
 
 /// Return the number of entries currently stored in the history list.
 ///
 /// (See [history_length](http://cnswww.cns.cwru.edu/php/chet/readline/history.html#IDX37))
 pub fn history_length() -> i32 {
-    unsafe { ffi::history_length }
+    unsafe { ext_readline::history_length }
 }
 
 /// Print a `prompt` and then read and return a single line of text from the user.
@@ -306,7 +309,7 @@ pub fn history_length() -> i32 {
 /// (See [readline](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX190))
 pub fn readline(prompt: &str) -> Option<String> {
     let c_prompt = CString::new(prompt).unwrap();
-    let c_line = unsafe { ffi::readline(c_prompt.as_ptr()) };
+    let c_line = unsafe { ext_readline::readline(c_prompt.as_ptr()) };
     if c_line.is_null() {  // user pressed Ctrl-D
         None
     } else {
@@ -320,14 +323,14 @@ pub fn readline(prompt: &str) -> Option<String> {
 ///
 /// (See [rl_line_buffer](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX192))
 pub fn rl_line_buffer() -> *mut i8 {
-    unsafe { ffi::rl_line_buffer }
+    unsafe { ext_readline::rl_line_buffer }
 }
 
 /// Return the offset of the current cursor position in `rl_line_buffer` (the point).
 ///
 /// (See [rl_point](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX192))
 pub fn rl_point() -> i32 {
-    unsafe { ffi::rl_point }
+    unsafe { ext_readline::rl_point }
 }
 
 /// Initialize or re-initialize Readline's internal state.
@@ -335,7 +338,7 @@ pub fn rl_point() -> i32 {
 ///
 /// (See [rl_initialize](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX316))
 pub fn rl_initialize() -> Result<()> {
-    let errno = unsafe { ffi::rl_initialize() };
+    let errno = unsafe { ext_readline::rl_initialize() };
     match errno {
         0 => Ok(()),
         errno => Err(Error::from_raw_os_error(errno))
@@ -346,7 +349,7 @@ pub fn rl_initialize() -> Result<()> {
 ///
 /// (See [rl_library_version](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX214))
 pub fn rl_library_version() -> String {
-    let slice = unsafe { CStr::from_ptr(ffi::rl_library_version).to_bytes() };
+    let slice = unsafe { CStr::from_ptr(ext_readline::rl_library_version).to_bytes() };
     str::from_utf8(slice).unwrap().to_string()
 }
 
@@ -354,7 +357,7 @@ pub fn rl_library_version() -> String {
 ///
 /// (See [rl_readline_version](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX214))
 pub fn rl_readline_version() -> i32 {
-    ffi::rl_readline_version
+    ext_readline::rl_readline_version
 }
 
 /// Name is set to a unique name by each application using Readline.
@@ -362,7 +365,7 @@ pub fn rl_readline_version() -> i32 {
 ///
 /// (See [rl_readline_name](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX218))
 pub fn rl_readline_name() -> Option<String> {
-    let name = unsafe { ffi::rl_readline_name };
+    let name = unsafe { ext_readline::rl_readline_name };
     c_str_to_string(name)
 }
 
@@ -373,10 +376,10 @@ pub fn rl_readline_name() -> Option<String> {
 pub fn set_rl_readline_name(name: &str) {
     // The memory will never be freed.
     /*unsafe {
-        libc::free(ffi::rl_readline_name as *mut c_void);
+        libc::free(ext_readline::rl_readline_name as *mut c_void);
     }*/
     let c_name = CString::new(name).unwrap();
-    unsafe { ffi::rl_readline_name = ffi::strdup(c_name.as_ptr()) }
+    unsafe { ext_readline::rl_readline_name = ext_readline::strdup(c_name.as_ptr()) }
 }
 
 /// Read keybindings and variable assignments from `filename`.
@@ -384,7 +387,7 @@ pub fn set_rl_readline_name(name: &str) {
 /// (See [rl_read_init_file](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX267))
 pub fn rl_read_init_file(filename: &Path) -> Result<()> {
     let c_filename = CString::new(filename.to_str().unwrap()).unwrap();
-    let errno = unsafe { ffi::rl_read_init_file(c_filename.as_ptr()) };
+    let errno = unsafe { ext_readline::rl_read_init_file(c_filename.as_ptr()) };
     match errno {
         0 => Ok(()),
         errno => Err(Error::from_raw_os_error(errno))
@@ -397,7 +400,7 @@ pub fn rl_read_init_file(filename: &Path) -> Result<()> {
 /// (See [rl_parse_and_bind](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX266))
 pub fn rl_parse_and_bind(line: &str) -> Result<()> {
     let c_line = CString::new(line).unwrap();
-    let errno = unsafe { ffi::rl_parse_and_bind(c_line.as_ptr()) };
+    let errno = unsafe { ext_readline::rl_parse_and_bind(c_line.as_ptr()) };
     match errno {
         0 => Ok(()),
         errno => Err(Error::from_raw_os_error(errno))
@@ -409,7 +412,7 @@ pub fn rl_parse_and_bind(line: &str) -> Result<()> {
 /// It should be set only by an application's completion function.
 /// (See [rl_attempted_completion_over](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX388))
 pub fn rl_attempted_completion_over(b: bool) {
-    unsafe { ffi::rl_attempted_completion_over = b as i32; }
+    unsafe { ext_readline::rl_attempted_completion_over = b as i32; }
 }
 
 /// Return the list of characters that signal a break between words for completion.
@@ -417,7 +420,7 @@ pub fn rl_attempted_completion_over(b: bool) {
 ///
 /// (See [rl_completer_word_break_characters](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX354))
 pub fn rl_completer_word_break_characters() -> Option<String> {
-    let wbc = unsafe { ffi::rl_completer_word_break_characters };
+    let wbc = unsafe { ext_readline::rl_completer_word_break_characters };
     c_str_to_string(wbc)
 }
 
@@ -428,17 +431,17 @@ pub fn rl_completer_word_break_characters() -> Option<String> {
 pub fn set_rl_completer_word_break_characters(wbc: &str) {
     // The memory will never be freed.
     /*unsafe {
-        libc::free(ffi::rl_completer_word_break_characters as *mut c_void);
+        libc::free(ext_readline::rl_completer_word_break_characters as *mut c_void);
     }*/
     let c_wbc = CString::new(wbc).unwrap();
-    unsafe { ffi::rl_completer_word_break_characters = ffi::strdup(c_wbc.as_ptr()) };
+    unsafe { ext_readline::rl_completer_word_break_characters = ext_readline::strdup(c_wbc.as_ptr()) };
 }
 
 /// Set the completion function to create matches.
 ///
 /// (See [rl_attempted_completion_function](http://cnswww.cns.cwru.edu/php/chet/readline/readline.html#IDX361))
 pub fn set_rl_attempted_completion_function(f: CPPFunction) {
-    unsafe { ffi::rl_attempted_completion_function = f }
+    unsafe { ext_readline::rl_attempted_completion_function = f }
 }
 
 /// Returns an array of strings which is a list of completions for text.
@@ -448,7 +451,7 @@ pub fn rl_completion_matches(text: *const i8,
                              entry_func: CompletionEntryFunction)
                              -> *mut *const i8 {
     unsafe {
-        ffi::rl_completion_matches(text, entry_func)
+        ext_readline::rl_completion_matches(text, entry_func)
     }
 }
 
