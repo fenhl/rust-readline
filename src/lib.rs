@@ -2,8 +2,7 @@
 #![warn(missing_docs)]
 extern crate libc;
 
-use std::ffi::CStr;
-use std::ffi::CString;
+use std::ffi::{CStr,CString};
 use std::path::Path;
 use std::io::{Error, Result};
 use std::mem;
